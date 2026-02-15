@@ -1,30 +1,54 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from "next/server";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
+function apiBase() {
+  return (
+    process.env.NEXT_PUBLIC_API_BASE ||
+    "https://instadrafts-api-xkrdwictda-el.a.run.app"
+  ).replace(/\/+$/, "");
+}
 
-async function handle(req: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
-  const { path } = await params;
-  const url = `${API_BASE}/${path.join('/')}${req.nextUrl.search}`;
+async function handle(req: NextRequest, ctx: { params: { path?: string[] } }) {
+  const parts = ctx.params.path || [];
+  const path = "/" + parts.join("/"); // e.g. /v1/admin/tasks
+  const url = new URL(req.url);
+
+  // We only proxy /api/* requests; caller usually uses /api/v1/...
+  // This route receives [...path] after /api/
+  const target = apiBase() + path + (url.search ? url.search : "");
+
   const headers = new Headers(req.headers);
-  headers.delete('host');
 
-  try {
-    const res = await fetch(url, {
-      method: req.method,
-      headers,
-      body: req.method === 'GET' ? undefined : await req.text(),
-    });
-    return new NextResponse(await res.text(), {
-      status: res.status,
-      headers: { 'Content-Type': res.headers.get('Content-Type') || 'application/json' }
-    });
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 502 });
-  }
+  // Admin identity (temporary until auth)
+  headers.set("x-user-role", "ADMIN");
+  headers.set("x-user-id", "admin_demo");
+
+  // Avoid host mismatch, compression issues
+  headers.delete("host");
+
+  // If body exists, read it
+  const method = req.method.toUpperCase();
+  const hasBody = !["GET", "HEAD"].includes(method);
+
+  const upstream = await fetch(target, {
+    method,
+    headers,
+    body: hasBody ? await req.arrayBuffer() : undefined,
+    redirect: "manual",
+  });
+
+  const resHeaders = new Headers(upstream.headers);
+  // Let browser read JSON
+  resHeaders.set("access-control-allow-origin", "*");
+
+  const buf = await upstream.arrayBuffer();
+  return new NextResponse(buf, {
+    status: upstream.status,
+    headers: resHeaders,
+  });
 }
 
 export const GET = handle;
 export const POST = handle;
-export const PUT = handle;
 export const PATCH = handle;
+export const PUT = handle;
 export const DELETE = handle;
