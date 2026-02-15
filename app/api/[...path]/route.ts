@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
+const DEFAULT_DEFAULT_API_ORIGIN = process.env.NEXT_PUBLIC_API_BASE || process.env.DEFAULT_API_ORIGIN || 'https://instadrafts-api-xkrdwictda-el.a.run.app';
+
 function apiBase() {
   return (
     process.env.NEXT_PUBLIC_API_BASE ||
