@@ -21,7 +21,7 @@ export default function PaymentsPage() {
   async function load() {
     setErr(null);
     try {
-      const data = await getJson<any>("/api/v1/payments/all");
+      const data = await getJson("/api/v1/payments/all");
       setItems(data.payments || []);
     } catch (e: any) {
       setErr(String(e?.message || e));

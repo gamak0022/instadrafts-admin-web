@@ -24,7 +24,7 @@ export default function InboxPage() {
     setLoading(true);
     setErr(null);
     try {
-      const data = await getJson<any>("/api/v1/admin/tasks?limit=30");
+      const data = await getJson("/api/v1/admin/tasks?limit=30");
       setItems(data.tasks || []);
     } catch (e: any) {
       setErr(String(e?.message || e));

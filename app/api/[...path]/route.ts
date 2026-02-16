@@ -1,56 +1,42 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const DEFAULT_DEFAULT_API_ORIGIN = process.env.NEXT_PUBLIC_API_BASE || process.env.DEFAULT_API_ORIGIN || 'https://instadrafts-api-xkrdwictda-el.a.run.app';
+const API_ORIGIN =
+  process.env.API_ORIGIN ||
+  process.env.NEXT_PUBLIC_API_BASE ||
+  "https://instadrafts-api-xkrdwictda-el.a.run.app";
 
-function apiBase() {
-  return (
-    process.env.NEXT_PUBLIC_API_BASE ||
-    "https://instadrafts-api-xkrdwictda-el.a.run.app"
-  ).replace(/\/+$/, "");
-}
-
-async function handle(req: NextRequest, ctx: { params: { path?: string[] } }) {
-  const parts = ctx.params.path || [];
-  const path = "/" + parts.join("/"); // e.g. /v1/admin/tasks
-  const url = new URL(req.url);
-
-  // We only proxy /api/* requests; caller usually uses /api/v1/...
-  // This route receives [...path] after /api/
-  const target = apiBase() + path + (url.search ? url.search : "");
+async function handler(req: NextRequest, ctx: { params: { path: string[] } }) {
+  const path = (ctx.params?.path || []).join("/");
+  const url = `${API_ORIGIN}/${path}`;
 
   const headers = new Headers(req.headers);
-
-  // Admin identity (temporary until auth)
-  headers.set("x-user-role", "ADMIN");
-  headers.set("x-user-id", "admin_demo");
-
-  // Avoid host mismatch, compression issues
   headers.delete("host");
 
-  // If body exists, read it
+  // Inject admin key from cookie (backend enforces ADMIN_API_KEY)
+  const adminKey = req.cookies.get("instadrafts_admin_key")?.value;
+  if (adminKey) headers.set("x-admin-key", adminKey);
+
+  // Don't forward browser cookies to API
+  headers.delete("cookie");
+
   const method = req.method.toUpperCase();
-  const hasBody = !["GET", "HEAD"].includes(method);
+  let body: any = undefined;
 
-  const upstream = await fetch(target, {
-    method,
-    headers,
-    body: hasBody ? await req.arrayBuffer() : undefined,
-    redirect: "manual",
-  });
+  if (method !== "GET" && method !== "HEAD") {
+    const ab = await req.arrayBuffer();
+    body = Buffer.from(ab);
+  }
 
-  const resHeaders = new Headers(upstream.headers);
-  // Let browser read JSON
-  resHeaders.set("access-control-allow-origin", "*");
+  const r = await fetch(url, { method, headers, body });
 
-  const buf = await upstream.arrayBuffer();
-  return new NextResponse(buf, {
-    status: upstream.status,
-    headers: resHeaders,
-  });
+  const respHeaders = new Headers(r.headers);
+  respHeaders.delete("content-encoding"); // avoid gzip issues in proxy
+
+  const data = await r.arrayBuffer();
+  return new NextResponse(data, { status: r.status, headers: respHeaders });
 }
 
-export const GET = handle;
-export const POST = handle;
-export const PATCH = handle;
-export const PUT = handle;
-export const DELETE = handle;
+export const GET = handler;
+export const POST = handler;
+export const PATCH = handler;
+export const DELETE = handler;

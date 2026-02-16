@@ -27,7 +27,7 @@ export default function CasesPage() {
   async function load() {
     setErr(null);
     try {
-      const data = await getJson<any>("/api/v1/admin/cases?limit=30");
+      const data = await getJson("/api/v1/admin/cases?limit=30");
       setItems(data.items || []);
     } catch (e: any) {
       setErr(String(e?.message || e));
