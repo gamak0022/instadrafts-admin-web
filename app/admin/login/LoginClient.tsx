@@ -34,6 +34,8 @@ export default function LoginClient() {
         throw new Error(`Auth failed: ${r.status} ${t}`);
       }
       localStorage.setItem("admin_key", k);
+            try { if (typeof window !== "undefined") localStorage.setItem("ADMIN_API_KEY", key); } catch {}
+
       router.push(nextPath);
     } catch (e: any) {
       setCookie("admin_key", "");
