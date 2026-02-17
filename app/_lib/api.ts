@@ -1,17 +1,21 @@
-export async function getJson<T = any>(url: string): Promise<T> {
-  const r = await fetch(url, { cache: 'no-store' });
+export async function getJson(url: string) {
+  const r = await fetch(url, { cache: "no-store" });
   const t = await r.text();
-  if (!r.ok) throw new Error(`${r.status} ${t}`);
-  try { return JSON.parse(t) as T; } catch { return t as unknown as T; }
+  let j: any = null;
+  try { j = JSON.parse(t); } catch {}
+  if (!r.ok) throw new Error(j?.error?.message || t || `HTTP ${r.status}`);
+  return j;
 }
 
-export async function postJson<T = any>(url: string, body: any): Promise<T> {
+export async function postJson(url: string, body?: any) {
   const r = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body ?? {}),
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body || {}),
   });
   const t = await r.text();
-  if (!r.ok) throw new Error(`${r.status} ${t}`);
-  try { return JSON.parse(t) as T; } catch { return t as unknown as T; }
+  let j: any = null;
+  try { j = JSON.parse(t); } catch {}
+  if (!r.ok) throw new Error(j?.error?.message || t || `HTTP ${r.status}`);
+  return j;
 }

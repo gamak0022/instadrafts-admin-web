@@ -1,39 +1,51 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const API_ORIGIN =
-  process.env.API_ORIGIN ||
-  process.env.NEXT_PUBLIC_API_BASE ||
-  "https://instadrafts-api-xkrdwictda-el.a.run.app";
+function apiBase() {
+  return (
+    process.env.NEXT_PUBLIC_API_BASE ||
+    process.env.API_BASE ||
+    "https://instadrafts-api-xkrdwictda-el.a.run.app"
+  );
+}
 
-async function handler(req: NextRequest, ctx: { params: { path: string[] } }) {
-  const path = (ctx.params?.path || []).join("/");
-  const url = `${API_ORIGIN}/${path}`;
+async function handler(req: NextRequest, { params }: { params: { path: string[] } }) {
+  const path = (params.path || []).join("/");
+  const url = `${apiBase()}/${path}${req.nextUrl.search}`;
 
+  const adminKey = req.cookies.get("admin_key")?.value || "";
+
+  // copy headers, but remove host and set admin key if present
   const headers = new Headers(req.headers);
   headers.delete("host");
-
-  // Inject admin key from cookie (backend enforces ADMIN_API_KEY)
-  const adminKey = req.cookies.get("instadrafts_admin_key")?.value;
+  headers.set("accept", "application/json, text/plain, */*");
   if (adminKey) headers.set("x-admin-key", adminKey);
 
-  // Don't forward browser cookies to API
-  headers.delete("cookie");
+  const init: RequestInit = {
+    method: req.method,
+    headers,
+  };
 
-  const method = req.method.toUpperCase();
-  let body: any = undefined;
-
-  if (method !== "GET" && method !== "HEAD") {
-    const ab = await req.arrayBuffer();
-    body = Buffer.from(ab);
+  // forward body for non-GET/HEAD
+  if (req.method !== "GET" && req.method !== "HEAD") {
+    const ct = req.headers.get("content-type") || "";
+    if (ct.includes("application/json")) {
+      init.body = JSON.stringify(await req.json().catch(() => ({})));
+      headers.set("content-type", "application/json");
+    } else {
+      init.body = await req.arrayBuffer();
+    }
   }
 
-  const r = await fetch(url, { method, headers, body });
+  const upstream = await fetch(url, init);
+  const text = await upstream.text();
 
-  const respHeaders = new Headers(r.headers);
-  respHeaders.delete("content-encoding"); // avoid gzip issues in proxy
-
-  const data = await r.arrayBuffer();
-  return new NextResponse(data, { status: r.status, headers: respHeaders });
+  return new NextResponse(text, {
+    status: upstream.status,
+    headers: {
+      "content-type": upstream.headers.get("content-type") || "application/json; charset=utf-8",
+      "access-control-allow-origin": "*",
+    },
+  });
 }
 
 export const GET = handler;
