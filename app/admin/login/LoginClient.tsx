@@ -28,7 +28,7 @@ export default function LoginClient() {
     setCookie("admin_key", k);
 
     try {
-      const r = await fetch("/api/v1/admin/tasks?limit=1");
+      const r = await fetch("/api/v1/admin/health", { headers: { "x-admin-key": key } });
       if (!r.ok) {
         const t = await r.text();
         throw new Error(`Auth failed: ${r.status} ${t}`);
