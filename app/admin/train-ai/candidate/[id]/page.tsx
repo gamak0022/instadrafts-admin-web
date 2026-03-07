@@ -160,7 +160,7 @@ export default function CandidateReviewPage({ params }: { params: { id: string }
 
         <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4 space-y-3">
           <div className="text-slate-200 font-semibold">Preview</div>
-          {fieldKeys.map((k)=>(
+          {fieldKeys.map((k: string)=>(
             <div key={k}>
               <label className="text-xs text-slate-400">{k}</label>
               <input className="w-full mt-1 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200"
